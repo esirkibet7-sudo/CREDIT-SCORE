@@ -552,7 +552,28 @@ const adminA = StyleSheet.create({
 function AdminDashboardModal({ visible, onClose, payments, onRefresh, isRefreshing }: {
   visible: boolean; onClose: () => void; payments: PaymentRecord[]; onRefresh: () => void; isRefreshing?: boolean;
 }) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
   const totalAmount = payments.reduce((sum, p) => sum + (Number(p.amount) || 100), 0);
+
+  const todayRevenue = payments
+    .filter((p) => {
+      if (!p.created_at) return true;
+      const d = new Date(p.created_at).getTime();
+      return d >= startOfToday;
+    })
+    .reduce((sum, p) => sum + (Number(p.amount) || 100), 0);
+
+  const weekRevenue = payments
+    .filter((p) => {
+      if (!p.created_at) return true;
+      const d = new Date(p.created_at).getTime();
+      return d >= sevenDaysAgo;
+    })
+    .reduce((sum, p) => sum + (Number(p.amount) || 100), 0);
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: BEIGE }}>
@@ -563,10 +584,26 @@ function AdminDashboardModal({ visible, onClose, payments, onRefresh, isRefreshi
             {isRefreshing ? <ActivityIndicator size="small" color={ACCENT} /> : <Ionicons name="refresh" size={24} color={ACCENT} />}
           </TouchableOpacity>
         </View>
-        <View style={adminD.summaryRow}>
-          <View style={adminD.sumCard}><Text style={adminD.sumLabel}>TOTAL PAYMENTS</Text><Text style={adminD.sumVal}>{payments.length}</Text></View>
-          <View style={adminD.sumCard}><Text style={adminD.sumLabel}>TOTAL REVENUE</Text><Text style={[adminD.sumVal, { color: SUCCESS }]}>KES {totalAmount}</Text></View>
+
+        <View style={adminD.summaryGrid}>
+          <View style={adminD.sumCard}>
+            <Text style={adminD.sumLabel}>TODAY'S EARNINGS</Text>
+            <Text style={[adminD.sumVal, { color: SUCCESS }]}>KES {todayRevenue}</Text>
+          </View>
+          <View style={adminD.sumCard}>
+            <Text style={adminD.sumLabel}>THIS WEEK'S EARNINGS</Text>
+            <Text style={[adminD.sumVal, { color: ACCENT }]}>KES {weekRevenue}</Text>
+          </View>
+          <View style={adminD.sumCard}>
+            <Text style={adminD.sumLabel}>TOTAL REVENUE</Text>
+            <Text style={[adminD.sumVal, { color: TEXT }]}>KES {totalAmount}</Text>
+          </View>
+          <View style={adminD.sumCard}>
+            <Text style={adminD.sumLabel}>TOTAL PAYMENTS</Text>
+            <Text style={adminD.sumVal}>{payments.length}</Text>
+          </View>
         </View>
+
         <View style={{ paddingHorizontal: 20, flex: 1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <Text style={adminD.listTitle}>Payment Log ({payments.length})</Text>
@@ -607,10 +644,10 @@ function AdminDashboardModal({ visible, onClose, payments, onRefresh, isRefreshi
 const adminD = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: BORDER },
   headerTitle: { fontSize: 17, fontWeight: '800', color: TEXT },
-  summaryRow: { flexDirection: 'row', gap: 12, padding: 20 },
-  sumCard: { flex: 1, backgroundColor: CARD, padding: 16, borderRadius: 16, borderWidth: 1.5, borderColor: BORDER },
-  sumLabel: { fontSize: 10, fontWeight: '800', color: MUTED, letterSpacing: 0.5, marginBottom: 4 },
-  sumVal: { fontSize: 22, fontWeight: '900', color: ACCENT },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 16 },
+  sumCard: { width: '48%', backgroundColor: CARD, padding: 14, borderRadius: 16, borderWidth: 1.5, borderColor: BORDER },
+  sumLabel: { fontSize: 9, fontWeight: '800', color: MUTED, letterSpacing: 0.5, marginBottom: 4 },
+  sumVal: { fontSize: 18, fontWeight: '900', color: ACCENT },
   listTitle: { fontSize: 13, fontWeight: '800', color: TEXT },
   itemCard: { backgroundColor: CARD, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 10 },
   itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
