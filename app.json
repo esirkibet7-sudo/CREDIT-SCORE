@@ -39,7 +39,6 @@
         "policy": "appVersion"
       },
       "permissions": [
-        "android.permission.INTERNET",
         "android.permission.INTERNET"
       ]
     },
@@ -55,9 +54,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#121318",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#121318"
           }
         }
       ],
@@ -86,14 +85,15 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "44f560c0-753f-43f2-93f9-0456065ea2fc"
+        "projectId": "58b61685-2f93-45f0-858b-312f3bd767f9"
       }
-    },
-    "updates": {
-      "url": "https://u.expo.dev/44f560c0-753f-43f2-93f9-0456065ea2fc"
     },
     "runtimeVersion": {
       "policy": "appVersion"
-    }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/58b61685-2f93-45f0-858b-312f3bd767f9"
+    },
+    "owner": "315_315"
   }
 }

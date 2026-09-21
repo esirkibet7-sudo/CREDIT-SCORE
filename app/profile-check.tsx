@@ -1,14 +1,14 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-  Platform,
-} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const BEIGE = '#F5F0E8';
@@ -54,7 +54,9 @@ export default function ProfileCheckScreen() {
   const fullName =
     [params.firstName, params.lastName].filter(Boolean).join(' ') || 'User';
 
-  const handleCheck = () => {
+  const handleCheck = async () => {
+    await AsyncStorage.setItem('CRB_USER_ID_NUMBER', params.idNumber ?? '');
+    await AsyncStorage.setItem('CRB_USER_PHONE', params.phone ?? '');
     router.push('/checking');
   };
 

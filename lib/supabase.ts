@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
 
-export const SUPABASE_URL = 'https://jonjgoqndmblrqbzncqu.supabase.co';
-export const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impvbmpnb3FuZG1ibHJxYnpuY3F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5NjAwMTksImV4cCI6MjEwNDUzNjAxOX0.1nza_yStbieTquBz4vatIqB0Rgh7JjBrLJS-6dhFE5I';
-export const SUPABASE_PUBLISHABLE_KEY =
-  'sb_publishable_kbyWYg7fNjGowgKGMvBCQw_8SouEfJ0';
+export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -29,7 +26,7 @@ export type PaymentRecord = {
 
 const LOCAL_PAYMENTS_KEY = 'CRB_ALL_PAYMENTS_HISTORY';
 
-// Record payment to Supabase database table `payments` AND local AsyncStorage
+// Keep a local receipt after the server has verified the payment.
 export async function recordPaymentToSupabase(payment: PaymentRecord) {
   // Ensure timestamp
   const recordToSave: PaymentRecord = {
@@ -52,21 +49,7 @@ export async function recordPaymentToSupabase(payment: PaymentRecord) {
     console.log('Local payment save error:', e);
   }
 
-  // 2. Insert to Supabase table
-  try {
-    const { data, error } = await supabase
-      .from('payments')
-      .insert([recordToSave])
-      .select();
-
-    if (error) {
-      console.log('Supabase insert notice (table RLS/existence):', error.message);
-    }
-    return { data, error };
-  } catch (err) {
-    console.log('Supabase network notice:', err);
-    return { data: null, error: err };
-  }
+  return { data: recordToSave, error: null };
 }
 
 // Fetch all successful payments (Combines Supabase DB + Local AsyncStorage)

@@ -1,28 +1,29 @@
 import {
-  fetchSuccessfulPaymentsFromSupabase,
-  PaymentRecord,
-  recordPaymentToSupabase,
+    fetchSuccessfulPaymentsFromSupabase,
+    PaymentRecord,
+    recordPaymentToSupabase,
+    supabase,
 } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Easing,
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Easing,
+    FlatList,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 
@@ -36,8 +37,6 @@ const SUCCESS = '#1A9E5C';
 const DANGER = '#C0392B';
 const DANGER_BG = '#FEF0EE';
 
-const PAYSTACK_SECRET_KEY = process.env.EXPO_PUBLIC_PAYSTACK_SECRET_KEY || ['sk', 'live', '745287861f5fa09137480c2cbe0591040afb5093'].join('_');
-const PAYSTACK_PUBLIC_KEY = process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY || ['pk', 'live', '28fc42213b7a3c847f83b966f775eb5e544ab792'].join('_');
 const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
 const PREFIXES = ['+254', '+255', '+256', '+234'];
 
@@ -107,6 +106,7 @@ function ClearingSpinner({ onDone }: { onDone: () => void }) {
       Animated.timing(pulse, { toValue: 1,    duration: 800, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ])).start();
     Animated.timing(progress, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: false }).start();
+      Animated.timing(progress, { toValue: 1, duration: 10000, easing: Easing.inOut(Easing.ease), useNativeDriver: false }).start();
     Animated.loop(Animated.sequence([
       Animated.parallel([
         Animated.timing(dot1, { toValue: 1,   duration: 300, useNativeDriver: true }),
@@ -125,7 +125,7 @@ function ClearingSpinner({ onDone }: { onDone: () => void }) {
       ]),
     ])).start();
 
-    const timer = setTimeout(onDone, 5000);
+    const timer = setTimeout(onDone, 10000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -146,6 +146,7 @@ function ClearingSpinner({ onDone }: { onDone: () => void }) {
       </View>
 
       <Text style={sp.title}>Processing Your Clearance</Text>
+        <Text style={sp.title}>Clearing in Progress</Text>
       <Text style={sp.subtitle}>Please wait while we clear your credit record</Text>
 
       <View style={sp.dotsRow}>
@@ -663,26 +664,13 @@ const adminD = StyleSheet.create({
 
 // ─── Helper: Initialize Paystack ──────────────────────────────────────────────
 async function initPaystack(phone: string, amountKes: number, phone2email: string) {
-  const reference = `CRB_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
-  const amountKobo = Math.round(amountKes * 100);
-
-  const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>body{background:#F5F0E8;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;box-sizing:border-box;}.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center;width:100%;max-width:360px;}.logo{font-size:22px;font-weight:800;color:#2E6B9E;margin-bottom:8px;}.t{font-size:15px;color:#2C2416;margin-bottom:20px;}.btn{background:#1A9E5C;color:#fff;border:none;padding:14px;font-size:16px;font-weight:700;border-radius:12px;cursor:pointer;width:100%;}</style>
-    <script src="https://js.paystack.co/v1/inline.js"></script></head><body>
-    <div class="card"><div class="logo">CRB Status Checker</div><div class="t">Pay KES ${amountKes}</div>
-    <button class="btn" onclick="go()">Tap to Pay KES ${amountKes}</button></div>
-    <script>function go(){var h=PaystackPop.setup({key:'${PAYSTACK_PUBLIC_KEY}',email:'${phone2email}',amount:${amountKobo},currency:'KES',ref:'${reference}',onClose:function(){window.ReactNativeWebView.postMessage(JSON.stringify({status:'cancelled'}));},callback:function(r){window.ReactNativeWebView.postMessage(JSON.stringify({status:'success',reference:r.reference}));}});h.openIframe();}window.onload=go;</script></body></html>`;
-
-  try {
-    const res = await fetch('https://api.paystack.co/transaction/initialize', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: phone2email, amount: amountKobo, currency: 'KES', reference, callback_url: 'https://standard.paystack.co/close' }),
-    });
-    const d = await res.json();
-    if (d?.status && d.data?.authorization_url) return { authUrl: d.data.authorization_url as string, html: undefined };
-  } catch {}
-  return { authUrl: undefined, html };
+  const { data, error } = await supabase.functions.invoke('paystack-initialize', {
+    body: { phone, amountKes, email: phone2email },
+  });
+  if (error || !data?.authorization_url) {
+    throw new Error(error?.message || 'Unable to initialize Paystack payment.');
+  }
+  return { authUrl: data.authorization_url as string };
 }
 
 // ─── Main Result Screen ───────────────────────────────────────────────────────
@@ -701,6 +689,7 @@ export default function ResultScreen() {
   const [certModalVisible, setCertModalVisible] = useState(false);
   const [payRef, setPayRef] = useState('');
   const [clearRef, setClearRef] = useState('');
+  const [userIdNumber, setUserIdNumber] = useState('');
   const [userPhone, setUserPhone] = useState('+254 712345678');
 
   // Admin Easter egg
@@ -715,6 +704,32 @@ export default function ResultScreen() {
   useEffect(() => {
     restorePhase();
   }, []);
+
+  useEffect(() => {
+    if ((phase !== 'bad_credit' && phase !== 'cleared') || isVipUser) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timestampKey = phase === 'bad_credit' ? 'CRB_PAID_TIMESTAMP' : 'CRB_CLEARED_TIMESTAMP';
+    AsyncStorage.getItem(timestampKey).then((timestamp) => {
+      if (!timestamp) return;
+      const remaining = TWELVE_HOURS_MS - (Date.now() - Number(timestamp));
+      if (remaining <= 0) {
+        setPhase('pre_payment');
+        setClearRef('');
+        setPayRef('');
+        return;
+      }
+      timer = setTimeout(() => {
+        setPhase('pre_payment');
+        setClearRef('');
+        setPayRef('');
+      }, remaining);
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [phase, isVipUser]);
 
   // Restore persisted state
   const restorePhase = async () => {
@@ -733,9 +748,11 @@ export default function ResultScreen() {
       const paidTs = await AsyncStorage.getItem('CRB_PAID_TIMESTAMP');
       const paidRef = await AsyncStorage.getItem('CRB_PAID_REFERENCE');
       const savedUserPhone = await AsyncStorage.getItem('CRB_USER_PHONE');
+      const savedIdNumber = await AsyncStorage.getItem('CRB_USER_ID_NUMBER');
       const paidPhone = await AsyncStorage.getItem('CRB_PAID_PHONE');
       if (savedUserPhone) setUserPhone(savedUserPhone);
       else if (paidPhone) setUserPhone(paidPhone);
+      if (savedIdNumber) setUserIdNumber(savedIdNumber);
 
       if (clearedTs && clearedRef) {
         if (Date.now() - parseInt(clearedTs) < TWELVE_HOURS_MS) {
@@ -791,14 +808,29 @@ export default function ResultScreen() {
     setCurrentPaymentType(type);
     const cleanPhone = phone.replace(/\D/g, '');
     const email = `${cleanPhone}@crbchecker.co.ke`;
-    const { authUrl: au, html } = await initPaystack(phone, amountKes, email);
-    setAuthUrl(au);
-    setInlineHtml(html);
-    setIsInitializing(false);
-    setPaystackVisible(true);
+    try {
+      const { authUrl: au } = await initPaystack(phone, amountKes, email);
+      setAuthUrl(au);
+      setInlineHtml(undefined);
+      setPaystackVisible(true);
+    } catch (error) {
+      Alert.alert('Payment unavailable', error instanceof Error ? error.message : 'Could not start Paystack checkout.');
+    } finally {
+      setIsInitializing(false);
+    }
   };
 
   const handlePaymentSuccess = async (ref: string) => {
+    const expectedAmount = currentPaymentType === 'check' ? 100 : 200;
+    const { data, error } = await supabase.functions.invoke('paystack-verify', {
+      body: { reference: ref, expectedAmountKes: expectedAmount, phone: userPhone },
+    });
+
+    if (error || !data?.verified) {
+      Alert.alert('Payment not verified', error?.message || 'Paystack has not confirmed this payment yet.');
+      return;
+    }
+
     setPaystackVisible(false);
 
     if (currentPaymentType === 'check') {
@@ -948,7 +980,6 @@ export default function ResultScreen() {
                 'Remove all active blacklist records',
                 'Restore your credit eligibility',
                 'Receive an official CRB clearance certificate',
-                'Valid for 90 days from date of clearance',
               ].map((benefit, i) => (
                 <View key={i} style={s.benefitRow}>
                   <Ionicons name="checkmark-circle" size={18} color={SUCCESS} />
@@ -994,6 +1025,21 @@ export default function ResultScreen() {
                 ? 'CRB Database check completed successfully. Your credit score is 860 (Excellent).\nReference: VIP_TERRENCE_HEALTHY'
                 : `Your CRB blacklist record has been successfully removed.\nReference: ${clearRef || payRef}`}
             </Text>
+
+            {!isVipUser && (
+              <View style={s.identityCard}>
+                <Text style={s.identityTitle}>REPORT HOLDER</Text>
+                <View style={s.identityRow}>
+                  <Text style={s.identityLabel}>Phone number</Text>
+                  <Text style={s.identityValue}>{userPhone}</Text>
+                </View>
+                <View style={s.identityRow}>
+                  <Text style={s.identityLabel}>National ID</Text>
+                  <Text style={s.identityValue}>{userIdNumber || '—'}</Text>
+                </View>
+                <Text style={s.identityStatus}>This number and ID are no longer in the blacklist.</Text>
+              </View>
+            )}
 
             {/* Cleared report card */}
             <View style={s.clearedCard}>
@@ -1151,6 +1197,12 @@ const s = StyleSheet.create({
   clearedBadgeTxt: { color: '#fff', fontSize: 13, fontWeight: '800' },
   clearedTitle: { fontSize: 26, fontWeight: '800', color: TEXT, textAlign: 'center', lineHeight: 34, letterSpacing: -0.4, marginBottom: 8 },
   clearedSub: { fontSize: 13, color: MUTED, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  identityCard: { width: '100%', backgroundColor: '#F0F7F2', borderRadius: 14, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: SUCCESS + '45' },
+  identityTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: MUTED, marginBottom: 10 },
+  identityRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: SUCCESS + '20' },
+  identityLabel: { fontSize: 13, color: MUTED },
+  identityValue: { fontSize: 13, fontWeight: '800', color: TEXT, maxWidth: '58%', textAlign: 'right' },
+  identityStatus: { fontSize: 12, lineHeight: 18, color: SUCCESS, fontWeight: '700', marginTop: 12 },
 
   clearedCard: { width: '100%', backgroundColor: CARD, borderRadius: 20, padding: 20, borderWidth: 1.5, borderColor: SUCCESS + '50', shadowColor: SUCCESS, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
   clearedCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

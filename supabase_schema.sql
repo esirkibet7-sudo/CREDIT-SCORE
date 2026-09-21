@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS public.payments (
   reference TEXT UNIQUE NOT NULL,
   status TEXT NOT NULL DEFAULT 'success',
   metadata JSONB DEFAULT '{}'::jsonb,
+  paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -23,18 +24,12 @@ CREATE INDEX IF NOT EXISTS idx_payments_created_at ON public.payments(created_at
 -- 3. Enable Row Level Security (RLS)
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
 
--- 4. Allow anonymous users to insert payments (for client app logging)
-CREATE POLICY "Allow public insert to payments" 
-  ON public.payments 
-  FOR INSERT 
-  TO anon, authenticated 
-  WITH CHECK (true);
-
--- 5. Allow anonymous users to read payments (for Admin dashboard & validation)
+-- 4. Only authenticated users can view payment history. Edge Functions write
+-- verified records with the service role and do not depend on client inserts.
 CREATE POLICY "Allow public read access to payments" 
   ON public.payments 
   FOR SELECT 
-  TO anon, authenticated 
+  TO authenticated
   USING (true);
 
 -- ====================================================================
@@ -43,6 +38,6 @@ CREATE POLICY "Allow public read access to payments"
 -- When Paystack triggers live webhook for event 'charge.success',
 -- it inserts the transaction into the payments table automatically.
 --
--- LIVE WEBHOOK URL to paste into Paystack Dashboard:
--- https://jonjgoqndmblrqbzncqu.supabase.co/functions/v1/paystack-webhook
+-- TEST WEBHOOK URL to paste into Paystack Dashboard:
+-- https://<PROJECT_REF>.supabase.co/functions/v1/paystack-webhook
 -- ====================================================================
