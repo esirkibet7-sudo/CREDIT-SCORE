@@ -17,7 +17,7 @@ import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
-  initialRouteName: 'auth',
+  initialRouteName: 'splash',
 };
 
 function OfflineModal() {
@@ -90,6 +90,7 @@ export default function RootLayout() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="splash" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="goals" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="profile-check" options={{ headerShown: false }} />
